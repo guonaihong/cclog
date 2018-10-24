@@ -2,6 +2,7 @@
 *.d
 *~
 *swp
+cclog_test
 
 # Compiled Object files
 *.slo
