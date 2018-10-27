@@ -2,7 +2,9 @@
 #define __CCFLOG_H
 
 #include <string>
+#include <mutex>
 #include <math.h>
+#include <stdarg.h>
 #include <sys/time.h>
 
 //todo: Adjust vim to c++ style
@@ -15,20 +17,27 @@ class CCLog {
 
         CCLog(enum Level level, string proc_name);
 
-        string print_buf();
 
         void errorf(const char *format, ...);
+
         void warnf(const char *format, ...);
+
         void infof(const char *format, ...);
+
         void debugf(const char *format, ...);
     private:
 
-        void printf(string level, const char *format, va_list ap);
         string     proc_name;
+
         string     buf;
+
         enum Level level;
 
-    void format_header(string level);
+        std::mutex m;
+
+        void format_header(string level);
+
+        void output();
 };
 
 CCLog::CCLog(enum Level level, string proc_name) {
@@ -36,30 +45,73 @@ CCLog::CCLog(enum Level level, string proc_name) {
     this->level     = level;
 }
 
-string CCLog::print_buf() {
-    format_header("debug");
-    return buf;
+void CCLog::output() {
+    std::cout<< this->buf;
+}
+
+#define cclog_printf(level, format, ap) {                                 \
+    std::lock_guard<std::mutex> l(this->m);                               \
+    this->buf.clear();                                                    \
+                                                                          \
+    this->format_header(level);                                           \
+                                                                          \
+    int old_size      =  this->buf.size();                                \
+                                                                          \
+    int need_space    = vsnprintf((char *)"", 0, format, ap);             \
+    va_end(ap);                                                           \
+    need_space++;                                                         \
+                                                                          \
+    this->buf.resize(old_size + need_space);                              \
+                                                                          \
+    va_start(ap, format);                                                 \
+    vsnprintf((char *)this->buf.c_str()+old_size, need_space, format, ap);\
+    va_end(ap);                                                           \
+                                                                          \
+    this->output();                                                       \
 }
 
 void CCLog::errorf(const char *format, ...) {
+
     if (Level::Error < this->level) {
         return ;
     }
+
+    va_list ap;
+    va_start(ap, format);
+    cclog_printf("error", format, ap);
 }
 
 void CCLog::warnf(const char *format, ...) {
+
     if (Level::Warn < this->level) {
+        return ;
     }
+
+    va_list ap;
+    va_start(ap, format);
+    cclog_printf("warn", format, ap);
 }
 
 void CCLog::infof(const char *format, ...) {
+
     if (Level::Info < this->level) {
+        return ;
     }
+
+    va_list ap;
+    va_start(ap, format);
+    cclog_printf("info", format, ap);
 }
 
 void CCLog::debugf(const char *format, ...) {
+
     if (Level::Debug < this->level) {
+        return ;
     }
+
+    va_list ap;
+    va_start(ap, format);
+    cclog_printf("debug", format, ap);
 }
 
 void CCLog::format_header(string level) {
@@ -96,11 +148,12 @@ void CCLog::format_header(string level) {
 
     buf.push_back('['), buf.append(this->proc_name), buf.append("] ");
     buf.push_back('['), buf.append(time), buf.append("] ");
-    buf.push_back('['), buf.append(level), buf.append("] ");
+    buf.push_back('['), buf.append(level);
 
     if (level.size() == 4) {
         buf.append(" ");
     }
+    buf.append("] ");
 
 }
 
