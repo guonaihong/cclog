@@ -17,7 +17,6 @@ class CCLog {
 
         CCLog(enum Level level, string proc_name);
 
-
         void errorf(const char *format, ...);
 
         void warnf(const char *format, ...);
