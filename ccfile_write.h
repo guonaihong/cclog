@@ -17,4 +17,7 @@ class CCFile {
         int    fd;
 };
 
+void CCFile::write(const char * buf, size_t count) {
+}
+
 #endif
