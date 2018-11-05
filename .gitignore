@@ -3,6 +3,7 @@
 *~
 *swp
 cclog_test
+ccqueue_test
 
 # Compiled Object files
 *.slo
