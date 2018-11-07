@@ -4,6 +4,7 @@
 *swp
 cclog_test
 ccqueue_test
+ccfile_write_test
 
 # Compiled Object files
 *.slo
