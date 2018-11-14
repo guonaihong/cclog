@@ -39,7 +39,7 @@ class CCFile {
         std::thread compression;
 };
 
-string base(string path) {
+static string filepath_base(string path) {
     if (path == "") {
         return ".";
     }
@@ -90,8 +90,16 @@ CCFile::CCFile(string prefix, string dir, int max_size, int max_archive) {
 
         char last = dir.c_str()[dir.size()-1]; 
         if(last != '/' && last != '\\') {
+            auto name = filepath_base(dir);
+            if (name == ".") {
+                name = "";
+            } else {
+                name += ".log";
+            }
         }
     }
+
+    //dir = filepath_dir();
 }
 
 void CCFile::compression_main() {
