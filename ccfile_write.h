@@ -105,6 +105,8 @@ CCFile::CCFile(string prefix, string dir, int max_size, int max_archive) {
 void CCFile::compression_main() {
 
     for (;;) {
+        string filename;
+        this->qcompress.wait_and_pop(filename);
     }
 }
 
