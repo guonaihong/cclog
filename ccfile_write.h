@@ -2,7 +2,12 @@
 #define __CCFILE_WRITE_H
 
 #include "ccqueue.h"
+#include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <thread>
+#include <functional>
+#include <libgen.h>
 
 using string = std::string;
 
@@ -39,34 +44,32 @@ class CCFile {
         std::thread compression;
 };
 
-static string filepath_base(string path) {
-    if (path == "") {
-        return ".";
-    }
+static int mkdir_all(const char *path, mode_t mode) {
+    std::function<int (const char *, const char *)> mkdir_core = [=](const char *path, const char *start_dir) -> int {
+        char *p = strchr((char *)start_dir, '/');
+        if (p != NULL) {
+            *p = '\0';
+            if (strcmp(path, ".") && mkdir(path, mode) == -1) {
+                printf("%s:%s\n", strerror(errno), path);
+                return -1;
+            }
 
-    auto is_path_separator = [](char c)-> bool{
-        return c == '/';
+            *p = '/';
+
+            return mkdir_core(path, p + 1);
+        }
+
+        return 0;
     };
 
-    while(path.size() > 0 && is_path_separator(path.c_str()[path.size()-1])) {
-        path.resize(path.size() - 1);
+    if (strchr(path, '/') != nullptr) {
+        char *p2 = strdup(path);
+        mkdir_core(p2, p2);
+        free(p2);
+        return 0;
     }
 
-    auto i = long(path.size() -1);
-
-    while(i >= 0 && !is_path_separator(path.c_str()[i])) {
-        i--;
-    }
-
-    if (i >= 0) {
-        return path.c_str() + i + 1;
-    }
-
-    if (path == "") {
-        return "/";
-    }
-
-    return "";
+    return mkdir((char *)path, mode);
 }
 
 CCFile::CCFile(string prefix, string dir, int max_size, int max_archive) {
@@ -90,7 +93,7 @@ CCFile::CCFile(string prefix, string dir, int max_size, int max_archive) {
 
         char last = dir.c_str()[dir.size()-1]; 
         if(last != '/' && last != '\\') {
-            auto name = filepath_base(dir);
+            string name = basename((char *)dir.c_str());
             if (name == ".") {
                 name = "";
             } else {
@@ -99,7 +102,16 @@ CCFile::CCFile(string prefix, string dir, int max_size, int max_archive) {
         }
     }
 
-    //dir = filepath_dir();
+    dir = dirname((char *)dir.c_str());
+
+    struct stat sb;
+    int rv = stat(dir.c_str(), &sb);
+    if (rv == -1) {
+        if(ENOENT == errno) {
+            mkdir_all(dir.c_str(), 0755);
+        }
+    }
+
 }
 
 void CCFile::compression_main() {
