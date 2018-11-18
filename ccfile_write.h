@@ -19,10 +19,12 @@ const int CCFILE_GB = CCFILE_KB * 1024;
 
 const int CCFILE_DEFAULT_MAX_SIZE = 100 * CCFILE_MB;
 
+enum class CompressType {Gzip, NotCompress};
+
 class CCFile {
 
     public:
-        CCFile(string prefix, string dir, int max_size, int max_archive);
+        CCFile(string prefix, string dir, enum CompressType compress, int max_size, int max_archive);
 
         int write(const char *buf, size_t count);
 
@@ -34,6 +36,7 @@ class CCFile {
 
         string dir;
         string prefix;
+        string default_name;
         
         int    fd;
 
@@ -72,7 +75,7 @@ static int mkdir_all(const char *path, mode_t mode) {
     return mkdir((char *)path, mode);
 }
 
-CCFile::CCFile(string prefix, string dir, int max_size, int max_archive) {
+CCFile::CCFile(string prefix, string dir, enum CompressType compress, int max_size, int max_archive) {
     if (prefix == "") {
         prefix = CCFILE_DEFAULT;
     }
@@ -89,11 +92,12 @@ CCFile::CCFile(string prefix, string dir, int max_size, int max_archive) {
         this->sort_and_del_main();
     });
 
+    string name = "";
     if (dir.size() > 0) {
 
         char last = dir.c_str()[dir.size()-1]; 
         if(last != '/' && last != '\\') {
-            string name = basename((char *)dir.c_str());
+            name = basename((char *)dir.c_str());
             if (name == ".") {
                 name = "";
             } else {
@@ -112,6 +116,8 @@ CCFile::CCFile(string prefix, string dir, int max_size, int max_archive) {
         }
     }
 
+    this->dir = dir;
+    this->default_name = name;
 }
 
 void CCFile::compression_main() {
