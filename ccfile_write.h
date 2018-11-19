@@ -3,8 +3,12 @@
 
 #include "ccqueue.h"
 #include <string.h>
+#include <unistd.h>
+#include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <limits.h>
+#include <stdlib.h>
 #include <thread>
 #include <functional>
 #include <libgen.h>
@@ -28,14 +32,22 @@ class CCFile {
 
         int write(const char *buf, size_t count);
 
+        void wait();
+
     private:
+        int    check_size(int size);
+        int    open_new();
         void   compression_main();
         void   sort_and_del_main();
+        string default_file_name();
         int    max_size;
         int    max_archive;
 
+        enum CompressType compress;
+
         string dir;
         string prefix;
+        string curr_name;
         string default_name;
         
         int    fd;
@@ -84,14 +96,6 @@ CCFile::CCFile(string prefix, string dir, enum CompressType compress, int max_si
         max_size = CCFILE_DEFAULT_MAX_SIZE;
     }
 
-    this->compression = std::thread([this]{
-        this->compression_main();
-    });
-
-    this->sort_and_del = std::thread([this] {
-        this->sort_and_del_main();
-    });
-
     string name = "";
     if (dir.size() > 0) {
 
@@ -116,8 +120,22 @@ CCFile::CCFile(string prefix, string dir, enum CompressType compress, int max_si
         }
     }
 
-    this->dir = dir;
+    this->dir          = dir;
     this->default_name = name;
+    this->compress     = compress;
+    this->prefix       = prefix;
+    this->max_size     = max_size;
+    this->max_archive  = max_archive;
+    this->fd           = -1;
+
+    this->compression = std::thread([this]{
+        this->compression_main();
+    });
+
+    this->sort_and_del = std::thread([this] {
+        this->sort_and_del_main();
+    });
+
 }
 
 void CCFile::compression_main() {
@@ -138,8 +156,63 @@ void CCFile::sort_and_del_main() {
     }
 }
 
+string CCFile::default_file_name() {
+    char out[PATH_MAX] = "";
+    string name = this->dir + "/" + this->prefix + ".log";
+
+    if (this->default_name != "") {
+        name = this->dir + "/" + this->prefix + this->default_name;
+    }
+
+    realpath(name.c_str(), out);
+    this->curr_name = out;
+    return string(out);
+}
+
+int CCFile::open_new() {
+    if (this->fd != -1) {
+        close(this->fd);
+        this->fd = -1;
+    }
+
+    this->fd = open(this->default_file_name().c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644);
+    if (this->fd == -1) {
+        return -1;
+    }
+
+    return 0;
+}
+
+// return 0 success
+// return != 0 error
+int CCFile::check_size(int size) {
+    if (size > this->max_size) {
+        return -1;
+    }
+
+    if (this->fd == -1) {
+        if (this->open_new() != 0) {
+            return -1;
+        }
+        return 0;
+    }
+
+    struct stat sb;
+
+    if (stat(this->curr_name.c_str(), &sb) != 0) {
+        return -1;
+    }
+
+    return 0;
+}
+
 int CCFile::write(const char * buf, size_t count) {
     return 0;
+}
+
+void CCFile::wait() {
+    this->sort_and_del.join();
+    this->compression.join();
 }
 
 #endif
