@@ -7,6 +7,8 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/time.h>
+#include <time.h>
 #include <limits.h>
 #include <stdlib.h>
 #include <thread>
@@ -40,6 +42,7 @@ class CCFile {
         void   compression_main();
         void   sort_and_del_main();
         string default_file_name();
+        string file_name_new();
         int    max_size;
         int    max_archive;
 
@@ -138,6 +141,39 @@ CCFile::CCFile(string prefix, string dir, enum CompressType compress, int max_si
 
 }
 
+static string gen_file_name() {
+    struct timeval tv;
+    struct tm      result;
+    char   time[65] = "";
+
+    if (gettimeofday(&tv, nullptr) != 0) {
+        return "";
+    }
+
+    localtime_r(&tv.tv_sec, &result);
+
+    strftime(time, sizeof(time) -1, "%Y%m%d%H%M%S", &result);
+
+    struct stat sb;
+    string new_name = "";
+    for (int i = 0; ;i++) {
+        if (i == 0) {
+            new_name = string(time) + ".log";
+        } else {
+            new_name = string(time) + std::to_string(i) + ".log";
+        }
+
+        if (stat(new_name.c_str(), &sb) == -1) {
+            break;
+        }
+    }
+    return new_name;
+}
+
+string CCFile::file_name_new() {
+    return this->dir + "/" + this->prefix + gen_file_name();
+}
+
 void CCFile::compression_main() {
 
     for (;;) {
@@ -203,6 +239,10 @@ int CCFile::check_size(int size) {
         return -1;
     }
 
+    if (sb.st_size + size > this->max_size) {
+        string new_name = this->file_name_new();
+        //rename(new_name.c_str());
+    }
     return 0;
 }
 
