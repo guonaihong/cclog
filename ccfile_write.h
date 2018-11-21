@@ -241,13 +241,19 @@ int CCFile::check_size(int size) {
 
     if (sb.st_size + size > this->max_size) {
         string new_name = this->file_name_new();
-        //rename(new_name.c_str());
+        rename(this->curr_name.c_str(), new_name.c_str());
+        this->qcompress.push(new_name);
     }
+
     return 0;
 }
 
-int CCFile::write(const char * buf, size_t count) {
-    return 0;
+int CCFile::write(const char *buf, size_t count) {
+    //todo lock
+    if (this->check_size(count) != 0) {
+        return 0;
+    }
+    return ::write(this->fd, buf, count);
 }
 
 void CCFile::wait() {
